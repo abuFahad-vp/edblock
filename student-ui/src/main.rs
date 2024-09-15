@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use edblock::{blockchain::blockchain_core::Certificate, generate_key};
+use edblock::{blockchain::blockchain_core::Certificate, utils::generate_key};
 
 pub mod api;
 
@@ -17,7 +17,7 @@ async fn upload_certificate(trans_url: String, course_id: String, course_name: S
 
 #[tauri::command(rename_all = "snake_case")]
 async fn get_address() -> String {
-  generate_key::generate_key("stu").wallet_address
+  generate_key("stu").unwrap().address
 }
 
 #[tauri::command(rename_all = "snake_case")]

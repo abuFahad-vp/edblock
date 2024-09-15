@@ -18,8 +18,8 @@ use std::fs;
 use std::path::Path;
 use chrono::prelude::*;
 use super::peer_network::{Message, Node};
-use super::blockchain_rest::rest_api::Len;
-use super::blockchain_rest::rest_api::Msg;
+use super::blockchain_rest::Len;
+use super::blockchain_rest::Msg;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Certificate {

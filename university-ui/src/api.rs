@@ -1,16 +1,11 @@
-use edblock::generate_key::generate_key;
-use edblock::utils::{get_certificates, get_time};
+use edblock::utils::{self, generate_key, get_certificates, get_time};
 use reqwest::Client;
 use edblock::blockchain::blockchain_core::Certificate;
-use edblock::blockchain::blockchain_rest::rest_api::Msg;
-use rsa::pkcs1::DecodeRsaPrivateKey;
-use rsa::pkcs1v15::SigningKey;
-use rsa::rand_core::OsRng;
-use rsa::signature::RandomizedSigner;
-use rsa::RsaPrivateKey;
+use edblock::blockchain::blockchain_rest::Msg;
+use secp256k1::Secp256k1;
 
 pub async fn check_certificate(url: &str) -> Result<Vec<Certificate>, reqwest::Error> {
-    let address = generate_key("uni").wallet_address;
+    let address = generate_key("uni").unwrap().address;
     let certificates: Vec<Certificate> = get_certificates(url, &address).await?.into_iter().filter(|elem| {
         elem.status != "completed"
     }).collect();
@@ -20,15 +15,14 @@ pub async fn check_certificate(url: &str) -> Result<Vec<Certificate>, reqwest::E
 pub async fn sign_certificate(url: &str, cert: &Certificate) -> bool {
 
     let client = Client::new();
-    let key_pair = generate_key("uni");
+    let key_pair = generate_key("uni").unwrap();
     let status = "completed";
-    let uni_priv_key = RsaPrivateKey::from_pkcs1_pem(&key_pair.priv_key_pem).expect("Failed to parse the private key pem file");
     let data = format!("{}{}{}{}{}{}{}{}",
         cert.course_id,cert.course_name, cert.stud_pub_key, cert.stud_wallet_addr, cert.uni_wallet_addr, 
-        cert.stud_sign, &key_pair.pub_key_pem, status);
+        cert.stud_sign, &key_pair.pub_key.to_string(), status);
 
-    let signing_key = SigningKey::<rsa::sha2::Sha256>::new(uni_priv_key);
-    let uni_sign = signing_key.sign_with_rng(&mut OsRng, data.as_bytes()).to_string();
+    let secp = Secp256k1::new();
+    let uni_sign = utils::sign_message(&secp, &key_pair.priv_key, &data).unwrap().to_string();
 
     let certificate = Certificate {
         timestamp: get_time(),
@@ -39,7 +33,7 @@ pub async fn sign_certificate(url: &str, cert: &Certificate) -> bool {
         stud_wallet_addr: cert.stud_wallet_addr.clone(),
         uni_wallet_addr: cert.uni_wallet_addr.clone(),
         stud_sign: cert.stud_sign.clone(),
-        uni_pub_key: key_pair.pub_key_pem.clone(),
+        uni_pub_key: key_pair.pub_key.to_string(),
         status: status.to_string(),
         uni_sign,
     };

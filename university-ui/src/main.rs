@@ -3,11 +3,12 @@
 
 mod api;
 
-use edblock::{blockchain::blockchain_core::Certificate, generate_key};
+use edblock::blockchain::blockchain_core::Certificate;
+use edblock::utils::generate_key;
 
 #[tauri::command(rename_all = "snake_case")]
 async fn get_address() -> String {
-  generate_key::generate_key("uni").wallet_address
+  generate_key("uni").unwrap().address
 }
 
 #[tauri::command(rename_all = "snake_case")]

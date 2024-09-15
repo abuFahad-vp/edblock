@@ -1,7 +1,8 @@
 use crate::blockchain::blockchain_core::Chain;
 use crate::blockchain::blockchain_tui;
-use crate::blockchain::blockchain_rest::rest_api;
 use crate::utils::get_value;
+
+use super::blockchain_rest;
 
 pub async fn blockchain_app() {
 
@@ -21,7 +22,7 @@ pub async fn blockchain_app() {
 
     let chain_clone = chain.clone();
     tokio::spawn(async move {
-        rest_api::blockchain_app_run(chain_clone, port_server).await.unwrap();
+        blockchain_rest::blockchain_app_run(chain_clone, port_server).await.unwrap();
     });
 
     let chain_clone = chain.clone();

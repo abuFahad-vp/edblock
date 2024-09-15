@@ -1,32 +1,30 @@
-use rsa::{pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey}, pkcs8::LineEnding, RsaPrivateKey, RsaPublicKey};
+use rand::rngs::OsRng;
+use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use sha2::{Digest, Sha256};
 use base58::ToBase58;
 use ripemd::Ripemd160;
 // use rsa::Pkcs1v15Encrypt;
 
-#[derive(Debug, serde_derive::Serialize, serde_derive::Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct KeyPairAddress {
-    pub priv_key_pem: String,
-    pub pub_key_pem: String,
-    pub wallet_address: String
+    pub priv_key: SecretKey,
+    pub pub_key: PublicKey,
+    pub address: String
 }
 
 impl KeyPairAddress {
     pub fn new() -> Self {
 
-        let mut rng = rand::thread_rng();
-        let bits = 2048;
+        let secp = Secp256k1::new();
+        let mut rng = OsRng::default();
+        let (sk, pk) = secp.generate_keypair(&mut rng);
 
-        let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("Failed to generate a key");
-        let pub_key = RsaPublicKey::from(&priv_key);
-        let priv_key_pem = priv_key.to_pkcs1_pem(LineEnding::LF).expect("Failed to generate private key's pem");
-        let pub_key_pem = pub_key.to_pkcs1_pem(LineEnding::LF).expect("Failed to generate public key's pem");
-        let wallet_address = Self::generate_wallet_address(pub_key_pem.as_bytes());
+        let address = Self::generate_wallet_address(&pk.to_string().as_bytes());
 
         KeyPairAddress {
-            priv_key_pem: priv_key_pem.to_string(),
-            pub_key_pem,
-            wallet_address,
+            priv_key: sk,
+            pub_key: pk,
+            address,
         }
     }
 
@@ -66,18 +64,4 @@ impl KeyPairAddress {
         // Step 6: Base58 encode the result to get the wallet address
         final_result.to_base58()
     }
-
-    // fn generate_key() {
-        // Output the result
-        // println!("Generated Wallet Address: {}", wallet_address);
-
-        // // Encrypt
-        // let data = b"hello world";
-        // let enc_data = pub_key.encrypt(&mut rng, Pkcs1v15Encrypt, &data[..]).expect("failed to encrypt");
-        // assert_ne!(&data[..], &enc_data[..]);
-
-        // // Decrypt
-        // let dec_data = priv_key.decrypt(Pkcs1v15Encrypt, &enc_data).expect("failed to decrypt");
-        // assert_eq!(&data[..], &dec_data[..]);
-    // }
 }
