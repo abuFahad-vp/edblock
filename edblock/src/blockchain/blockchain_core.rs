@@ -203,6 +203,10 @@ impl Chain {
         }
 
         println!("max block heigh = {height}");
+        if max_addr.is_empty() || height == 0 {
+            println!("No need to sync");
+            return chain;
+        }
 
         // archive the db
         let response = reqwest::get(format!("http://{max_addr}/archive_db"))

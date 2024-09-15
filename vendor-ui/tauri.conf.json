@@ -3,7 +3,7 @@
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
     "distDir": "frontend/user-ui/public",
-    "devPath": "http://localhost:8080",
+    "devPath": "frontend/user-ui/public",
     "withGlobalTauri": true
   },
   "package": {
