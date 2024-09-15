@@ -1,14 +1,37 @@
-use edblock::utils::{self, generate_key, get_certificates, get_time};
+use std::str::FromStr;
+
+use edblock::utils::{self, generate_key, get_certificates, get_time, verify_signature};
 use reqwest::Client;
 use edblock::blockchain::blockchain_core::Certificate;
 use edblock::blockchain::blockchain_rest::Msg;
-use secp256k1::Secp256k1;
+use std::io::ErrorKind;
+use secp256k1::{ecdsa::Signature, PublicKey, Secp256k1};
 
-pub async fn check_certificate(url: &str) -> Result<Vec<Certificate>, reqwest::Error> {
-    let address = generate_key("uni").unwrap().address;
-    let certificates: Vec<Certificate> = get_certificates(url, &address).await?.into_iter().filter(|elem| {
-        elem.status != "completed"
-    }).collect();
+pub async fn check_certificate(url: &str) -> Result<Vec<Certificate>, std::io::Error> {
+    let address = generate_key("uni")?.address;
+
+    let certificates: Vec<Certificate> = get_certificates(url, &address).await
+        .map_err(|_| ErrorKind::InvalidData)?
+        .into_iter()
+        .filter_map(|c| {
+            // Create data string
+            let data = format!("{}{}{}{}{}", c.course_id, c.course_name, c.stud_pub_key, c.stud_wallet_addr, c.uni_wallet_addr);
+
+            // Set up secp256k1 context
+            let secp = Secp256k1::new();
+
+            // Parse public key and signature
+            let stud_pub_key = PublicKey::from_str(&c.stud_pub_key).ok()?;
+            let signature = Signature::from_str(&c.stud_sign).ok()?;
+
+            // Verify the signature
+            match verify_signature(&secp, &stud_pub_key, &data, &signature) {
+                Ok(true) if c.status != "completed" => Some(c),  // Only keep the valid and incomplete certificates
+                _ => None,  // Filter out invalid or completed certificates
+            }
+        })
+        .collect();
+
     Ok(certificates)
 }
 
