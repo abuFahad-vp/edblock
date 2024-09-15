@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "edblock",
+    "student-ui",
+    "university-ui",
+    "vendor-ui",
+]
+resolver = "1"
+
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
