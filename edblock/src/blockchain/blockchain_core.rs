@@ -75,7 +75,7 @@ pub struct Chain {
 impl Chain {
     pub async fn new(port: u16, server_port: u16) -> Chain {
 
-        let node = Node::new(port,format!("127.0.0.1:{server_port}")).await;
+        let node = Node::new(port,format!("0.0.0.0:{server_port}")).await;
 
         node.server_listen().await;
 

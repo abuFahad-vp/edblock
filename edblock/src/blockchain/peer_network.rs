@@ -1,5 +1,6 @@
+use serde::Serialize;
 use uuid::Uuid;
-use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::tcp::{OwnedReadHalf, OwnedWriteHalf}};
+use tokio::{io::{AsyncRead, AsyncReadExt, AsyncWriteExt}, net::tcp::{OwnedReadHalf, OwnedWriteHalf}};
 use core::str;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
@@ -110,7 +111,7 @@ impl Node {
         tokio::spawn(async move {
 
             let node_id = node_id.clone();
-            let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}",port)).await.expect("Failed to bind the socket to the address");
+            let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}",port)).await.expect("Failed to bind the socket to the address");
 
             println!("Server listening on port {}",port);
 
@@ -171,16 +172,16 @@ impl Node {
     ) {
 
         let handshake_msg = format!("HNDSHK 10 {} {}", node_id, server_addr);
-        let msg_len = handshake_msg.as_bytes().len();
-        let mut peer_request = vec![0 as u8; msg_len];
+        let peer_request = Self::msg_reciever(&mut stream).await;
 
-        if let Err(e) = stream.read_exact(&mut peer_request).await {
-            println!("Handshake failed due to {e}");
+        if let Err(e) = &peer_request {
+            println!("178: Handshake failed due to {e}");
             return
         }
-        let response = String::from_utf8(peer_request).unwrap();
-        let response: Vec<&str> = response.split(" ").collect();
+        let response = String::from_utf8(peer_request.unwrap()).unwrap();
         println!("new peer response: {:?}", response);
+
+        let response: Vec<&str> = response[1..response.len()].split(" ").collect();
         match response[..] {
             // if proper request
             ["HNDSHK", "01", uuid, peer_addr] => {
@@ -193,7 +194,7 @@ impl Node {
                     println!("Peer {uuid} accepted with server ip {peer_addr}");
 
                     // respond with success message
-                    stream.write_all(handshake_msg.as_bytes()).await.unwrap();
+                    stream.write_all(&Self::encode_msg_bytes(&handshake_msg)).await.unwrap();
 
                     let (read_half, write_half) = stream.into_split();
                     let mut write_streams = write_streams.lock().await;
@@ -209,7 +210,7 @@ impl Node {
             _ => {
                 println!("Invalid response. Handshake rejected");
                 let handshake_msg = format!("HNDSHK 00 {} {}", node_id, server_addr);
-                stream.write_all(handshake_msg.as_bytes()).await.unwrap();
+                stream.write_all(&Self::encode_msg_bytes(&handshake_msg)).await.unwrap();
             }
         }
     }
@@ -217,7 +218,8 @@ impl Node {
     async fn detect_protocol(stream: &mut tokio::net::TcpStream) -> Protocol {
         let mut buf = [0; 1024];
         if let Ok(n) = stream.peek(&mut buf).await {
-            if n >= 7 && &buf[..7] == b"HNDSHK " {
+            // println!("{:?}, {:?} {}", &buf[9..15], b"HNDSHK", &buf[9..15] == b"HNDSHK");
+            if n >= 15 && &buf[9..15] == b"HNDSHK" {
                 Protocol::Handshake
             } else {
                 Protocol::Unknown
@@ -259,20 +261,19 @@ impl Node {
             let handshake_msg = format!("HNDSHK 01 {} {}",node_id, server_addr);
 
             println!("handshake msg: {}", handshake_msg);
+            let handshake_msg = Self::encode_msg_bytes(&handshake_msg);
+            stream.write_all(&handshake_msg).await.unwrap();
 
-            let msg_len = handshake_msg.as_bytes().len();
-            stream.write_all(handshake_msg.as_bytes()).await.unwrap();
+            let peer_response = Self::msg_reciever(&mut stream).await;
 
-
-            let mut peer_response = vec![0 as u8; msg_len];
-
-            if let Err(e) = stream.read_exact(&mut peer_response).await {
-                println!("Handshake failed due to {e}");
+            if let Err(e) = &peer_response {
+                println!("268: Handshake failed due to {e}");
                 return
             }
 
-            let response = String::from_utf8(peer_response).unwrap();
-            let tokens: Vec<&str> = response.split(" ").into_iter().filter(|x| !x.is_empty()).collect();
+            let response = String::from_utf8(peer_response.unwrap()).unwrap();
+            println!("{}", response);
+            let tokens: Vec<&str> = response[1..response.len()].split(" ").into_iter().filter(|x| !x.is_empty()).collect();
 
             match tokens[..] {
                 ["HNDSHK", "10", uuid, peer_addr] => {
@@ -306,6 +307,26 @@ impl Node {
         });
     }
 
+    async fn msg_reciever<T: AsyncRead + std::marker::Unpin>(stream: &mut T) -> Result<Vec<u8>, &'static str> {
+        let mut buff = vec![0 as u8; 8];
+        if let Err(e) = stream.read_exact(&mut buff).await {
+            eprintln!("Connection closed. Failed to recieve the message: {e}");
+            return Err("Failed to read the msg len");
+        }
+        let mut msg_len = [0u8; std::mem::size_of::<usize>()];
+        msg_len.copy_from_slice(&buff);
+        let msg_len = usize::from_be_bytes(msg_len);
+
+        buff.clear();
+        buff.resize(msg_len, 0);
+
+        if let Err(e) = stream.read_exact(&mut buff).await {
+            eprintln!("Connection closed. Failed to recieve the message: {e}");
+            return Err("Failed to read the msg buffer");
+        }
+        Ok(buff)
+    }
+
     async fn peer_receiver(mut stream: OwnedReadHalf, 
         msg_incoming_tx: crossbeam_channel::Sender<Message>,
         msg_hashes: Arc<tokio::sync::Mutex<HashMap<String,bool>>>
@@ -313,24 +334,13 @@ impl Node {
         let msg_hashes = msg_hashes.clone();
         tokio::spawn(async move {
             loop {
-
-                let mut buff = vec![0 as u8; 8];
-                if let Err(e) = stream.read_exact(&mut buff).await {
-                    eprintln!("Connection closed. Failed to recieve the message: {e}");
-                    break;
-                }
-                let mut msg_len = [0u8; std::mem::size_of::<usize>()];
-                msg_len.copy_from_slice(&buff);
-                let msg_len = usize::from_be_bytes(msg_len);
-
-                buff.clear();
-                buff.resize(msg_len, 0);
-
-                if let Err(e) = stream.read_exact(&mut buff).await {
-                    eprintln!("Connection closed. Failed to recieve the message: {e}");
+                let buff = Self::msg_reciever(&mut stream).await;
+                if let Err(e) = buff {
+                    eprintln!("Failed to read recieve: {e}");
                     break;
                 }
 
+                let buff = buff.unwrap();
                 let msg: Message= serde_json::from_str(str::from_utf8(&buff).unwrap()).unwrap();
                 // continue if the message is already recieved
 
@@ -393,7 +403,7 @@ impl Node {
         });
     }
 
-    fn encode_msg_bytes(data: &Message) -> Vec<u8> {
+    fn encode_msg_bytes<T: Serialize>(data: &T) -> Vec<u8> {
         let msg = serde_json::to_string(&data).unwrap();
         let header = (msg.len()).to_be_bytes();
         let mut msg_vec = Vec::with_capacity(msg.len() + header.len());

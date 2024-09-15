@@ -9,16 +9,18 @@ use axum::{routing::get, extract::Json, extract::Path};
 
 type SharedMap = std::sync::Arc<tokio::sync::Mutex<HashMap<String, Vec<Transaction>>>>;
 
-use edblock::blockchain::{blockchain_core::Transaction, peer_network::Node};
+use edblock::{blockchain::{blockchain_core::Transaction, peer_network::Node}, utils::get_value};
 
 #[tokio::main]
 async fn main() {
 
     let transaction_map = Arc::new(tokio::sync::Mutex::new(HashMap::<String, Vec<Transaction>>::new()));
 
-    let exp_node = Node::new(1234, "127.0.0.1:1234".to_string()).await;
+    let port: u16 = get_value("Enter port number: ").parse().unwrap();
+    let exp_node = Node::new(port, "0.0.0.0:1234".to_string()).await;
 
-    exp_node.add_peer("127.0.0.1:8000".to_string()).await;
+    let node_address = get_value("Enter any node address: ");
+    exp_node.add_peer(node_address).await;
 
     let transaction_map_clone = transaction_map.clone();
     tokio::spawn(async move {
@@ -81,7 +83,7 @@ async fn get_transaction(Path(address): Path<String>, Extension(trasaction_map):
 }
 
 async fn serve(app: Router, port: u16) {
-    let addr = SocketAddr::from(([127,0,0,1], port));
+    let addr = SocketAddr::from(([0,0,0,0], port));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     tracing::debug!("listeneing on {}",listener.local_addr().unwrap());
     axum::serve(listener, app.layer(TraceLayer::new_for_http()))
