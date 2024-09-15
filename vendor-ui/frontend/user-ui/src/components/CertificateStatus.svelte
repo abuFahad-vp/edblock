@@ -1,9 +1,13 @@
 <script>
+    import CertDetails from "./CertDetails.svelte";
+
     let certificate_id = '';
     let student_address = '';
     let university_address = '';
     let isAuthentic = null;
     let isLoading = false;
+    let certificate = {}
+    let showCertificate = false;
 
     export let url = "";
     const invoke = window.__TAURI__.invoke
@@ -15,10 +19,13 @@
             .then((value) => {
                 isAuthentic = true
                 isLoading = false;
+                showCertificate = true
+                certificate = value
             })
             .catch((e) => {
                 isAuthentic = false
                 isLoading = false
+                showCertificate = false
             }
         )
     }
@@ -55,6 +62,9 @@
                 <p class="error">Failed to Verify.</p>
             {/if}
         </div>
+    {/if}
+    {#if showCertificate}
+        <CertDetails {certificate}/>
     {/if}
 </main>
 

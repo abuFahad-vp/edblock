@@ -4,9 +4,10 @@ use std::str::FromStr;
 
 use edblock::utils::{get_certificates, verify_signature};
 use secp256k1::{ecdsa::Signature, PublicKey, Secp256k1};
+use edblock::blockchain::blockchain_core::Certificate;
 
 #[tauri::command(rename_all = "snake_case")]
-async fn get_status(url: String, certificate_id: String, student_address: String, university_address: String) -> Result<(),()> {
+async fn get_status(url: String, certificate_id: String, student_address: String, university_address: String) -> Result<Certificate,()> {
     let certificates = get_certificates(&url, &student_address).await.map_err(|_| ())?;
 
     for c in certificates {
@@ -34,7 +35,7 @@ async fn get_status(url: String, certificate_id: String, student_address: String
             let is_okay_uni = verify_signature(&secp, &uni_pub_key, &uni_data, &uni_signature).map_err(|_| ())?;
 
             if is_okay_stud && is_okay_uni {
-                return Ok(());
+                return Ok(c);
             }
         }
     }
