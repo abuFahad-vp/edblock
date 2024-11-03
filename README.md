@@ -17,11 +17,11 @@ Edblock is a blockchain-based certificate verification system that provides secu
 ### Steps
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/abuFahad-vp/edblock_v2.git
+   git clone https://github.com/abuFahad-vp/edblock.git
    ```
 2. **Build the Project**
    ```bash
-   cd edblock_v2 && cargo build
+   cd edblock && cargo build
    ```
 
 ## Running the Application
