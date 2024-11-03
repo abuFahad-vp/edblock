@@ -49,7 +49,7 @@ async fn main() {
         }
     });
 
-    explorer_app_run(transaction_map, 12345).await.unwrap();
+    explorer_app_run(transaction_map, port).await.unwrap();
 }
 
 pub async fn explorer_app_run(transaction_map: SharedMap, port: u16) -> Result<(), Box<dyn std::error::Error>> {

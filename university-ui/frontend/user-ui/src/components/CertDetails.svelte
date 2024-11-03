@@ -24,6 +24,7 @@
     <h4><span class="label">Certificate ID:</span> <span class="value">{certificate.certificate_id}</span></h4>
     <h4><span class="label">Course ID:</span> <span class="value">{certificate.course_id}</span></h4>
     <h4><span class="label">Course Name:</span> <span class="value">{certificate.course_name}</span></h4>
+    <h4><span class="label">Student Address:</span> <span class="value">{certificate.stud_wallet_addr}</span></h4>
     <h4><span class="label">Institution Address:</span> <span class="value">{certificate.uni_wallet_addr}</span></h4>
     <h4>
         <span class="label">Status:</span> 
